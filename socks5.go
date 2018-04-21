@@ -115,8 +115,6 @@ func (s *Server) Serve(l net.Listener, limit int) error {
 		return err
 	}
 
-	log.Println(p.Len())
-
 	for {
 		conn, err := p.Get()
 		if err != nil {
@@ -129,7 +127,12 @@ func (s *Server) Serve(l net.Listener, limit int) error {
 
 // ServeConn is used to serve a single connection.
 func (s *Server) ServeConn(conn net.Conn) {
-	defer conn.Close()
+	defer func() {
+		if pc, ok := conn.(*pool.PoolConn); ok {
+			pc.MarkUnusable()
+			pc.Close()
+		}
+	}()
 	bufConn := bufio.NewReader(conn)
 
 	// Read the version byte
