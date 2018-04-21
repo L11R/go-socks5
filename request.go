@@ -205,7 +205,7 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 	go proxy(conn, target, writtenCh, errCh)
 
 	// Count bytes
-	go watch(req.AuthContext, writtenCh)
+	//go watch(req.AuthContext, writtenCh)
 
 	// Wait goroutines
 	for i := 0; i < 2; i++ {

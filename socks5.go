@@ -110,7 +110,7 @@ func (s *Server) Serve(l net.Listener, limit int) error {
 		return l.Accept()
 	}
 
-	p, err := pool.NewChannelPool(1, limit, factory)
+	p, err := pool.NewChannelPool(0, limit, factory)
 	if err != nil {
 		return err
 	}
