@@ -115,13 +115,13 @@ func (s *Server) Serve(l net.Listener, limit int) error {
 		return err
 	}
 
+	log.Println(p.Len())
+
 	for {
 		conn, err := p.Get()
 		if err != nil {
 			return err
 		}
-
-		log.Println(p.Len())
 
 		go s.ServeConn(conn)
 	}
