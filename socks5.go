@@ -3,6 +3,7 @@ package socks5
 import (
 	"bufio"
 	"context"
+	"github.com/fatih/pool"
 	"log"
 	"net"
 	"os"
@@ -95,21 +96,31 @@ func New(conf *Config) (*Server, error) {
 }
 
 // ListenAndServe is used to create a listener and serve on it
-func (s *Server) ListenAndServe(network, addr string) error {
+func (s *Server) ListenAndServe(network, addr string, limit int) error {
 	l, err := net.Listen(network, addr)
 	if err != nil {
 		return err
 	}
-	return s.Serve(l)
+	return s.Serve(l, limit)
 }
 
 // Serve is used to serve connections from a listener
-func (s *Server) Serve(l net.Listener) error {
+func (s *Server) Serve(l net.Listener, limit int) error {
 	for {
-		conn, err := l.Accept()
+		factory := func() (net.Conn, error) {
+			return l.Accept()
+		}
+
+		p, err := pool.NewChannelPool(1, limit, factory)
 		if err != nil {
 			return err
 		}
+
+		conn, err := p.Get()
+		if err != nil {
+			return err
+		}
+
 		go s.ServeConn(conn)
 	}
 }
