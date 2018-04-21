@@ -3,10 +3,10 @@ package socks5
 import (
 	"bufio"
 	"context"
-	"github.com/fatih/pool"
 	"log"
 	"net"
 	"os"
+	"sync"
 )
 
 const (
@@ -47,6 +47,9 @@ type Config struct {
 
 	// Optional function for dialing out
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error)
+
+	// Sessions limit per user
+	SessionsPerUser int
 }
 
 // Server is reponsible for accepting connections and handling
@@ -54,6 +57,9 @@ type Config struct {
 type Server struct {
 	config      *Config
 	authMethods map[uint8]Authenticator
+
+	// User sessions
+	Sessions sync.Map
 }
 
 // New creates a new Server and potentially returns an error
@@ -96,27 +102,18 @@ func New(conf *Config) (*Server, error) {
 }
 
 // ListenAndServe is used to create a listener and serve on it
-func (s *Server) ListenAndServe(network, addr string, limit int) error {
+func (s *Server) ListenAndServe(network, addr string) error {
 	l, err := net.Listen(network, addr)
 	if err != nil {
 		return err
 	}
-	return s.Serve(l, limit)
+	return s.Serve(l)
 }
 
 // Serve is used to serve connections from a listener
-func (s *Server) Serve(l net.Listener, limit int) error {
-	factory := func() (net.Conn, error) {
-		return l.Accept()
-	}
-
-	p, err := pool.NewChannelPool(0, limit, factory)
-	if err != nil {
-		return err
-	}
-
+func (s *Server) Serve(l net.Listener) error {
 	for {
-		conn, err := p.Get()
+		conn, err := l.Accept()
 		if err != nil {
 			return err
 		}
@@ -150,7 +147,19 @@ func (s *Server) ServeConn(conn net.Conn) {
 		return
 	}
 
-	log.Printf("%s authenticated", authContext.Payload["Username"])
+	username := authContext.Payload["Username"]
+
+	s.Sessions.Store(username, 1)
+	if count, found := s.Sessions.Load(username); found {
+		if count.(int) > s.config.SessionsPerUser {
+			s.config.Logger.Printf("[ERR] auth: max auths per user have exceeded")
+			return
+		}
+
+		s.Sessions.Store(username, count.(int)+1)
+	}
+
+	log.Printf("%s authenticated\n", username)
 
 	request, err := NewRequest(bufConn)
 	if err != nil {
