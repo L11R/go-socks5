@@ -149,6 +149,7 @@ func (s *Server) ServeConn(conn net.Conn) {
 
 	username := authContext.Payload["Username"]
 
+	var count int
 	if count, found := s.Sessions.Load(username); found {
 		if count.(int) > s.config.SessionsPerUser {
 			s.config.Logger.Printf("[ERR] auth: max auths per user have exceeded")
@@ -159,6 +160,7 @@ func (s *Server) ServeConn(conn net.Conn) {
 	} else {
 		s.Sessions.Store(username, 1)
 	}
+	defer s.Sessions.Store(username, count-1)
 
 	log.Printf("%s authenticated\n", username)
 
