@@ -114,7 +114,7 @@ func (s *Server) authenticate(conn io.Writer, bufConn io.Reader) (*AuthContext, 
 	// Get the methods
 	methods, err := readMethods(bufConn)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get auth methods: %v", err)
+		return nil, fmt.Errorf("failed to get auth methods: %v", err)
 	}
 
 	// Select a usable method
