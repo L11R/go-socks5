@@ -106,20 +106,22 @@ func (s *Server) ListenAndServe(network, addr string, limit int) error {
 
 // Serve is used to serve connections from a listener
 func (s *Server) Serve(l net.Listener, limit int) error {
+	factory := func() (net.Conn, error) {
+		return l.Accept()
+	}
+
+	p, err := pool.NewChannelPool(1, limit, factory)
+	if err != nil {
+		return err
+	}
+
 	for {
-		factory := func() (net.Conn, error) {
-			return l.Accept()
-		}
-
-		p, err := pool.NewChannelPool(1, limit, factory)
-		if err != nil {
-			return err
-		}
-
 		conn, err := p.Get()
 		if err != nil {
 			return err
 		}
+
+		log.Println(p.Len())
 
 		go s.ServeConn(conn)
 	}
