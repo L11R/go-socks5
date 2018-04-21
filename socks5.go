@@ -127,12 +127,7 @@ func (s *Server) Serve(l net.Listener, limit int) error {
 
 // ServeConn is used to serve a single connection.
 func (s *Server) ServeConn(conn net.Conn) {
-	defer func() {
-		if pc, ok := conn.(*pool.PoolConn); ok {
-			pc.MarkUnusable()
-			pc.Close()
-		}
-	}()
+	defer conn.Close()
 	bufConn := bufio.NewReader(conn)
 
 	// Read the version byte
@@ -155,15 +150,17 @@ func (s *Server) ServeConn(conn net.Conn) {
 		return
 	}
 
+	log.Printf("%s authenticated", authContext.Payload["Username"])
+
 	request, err := NewRequest(bufConn)
 	if err != nil {
 		if err == unrecognizedAddrType {
 			if err := sendReply(conn, addrTypeNotSupported, nil); err != nil {
-				s.config.Logger.Printf("[ERR] socks: Failed to send reply: %v", err)
+				s.config.Logger.Printf("[ERR] socks: failed to send reply: %v", err)
 				return
 			}
 		}
-		s.config.Logger.Printf("[ERR] socks: Failed to read destination address: %v", err)
+		s.config.Logger.Printf("[ERR] socks: failed to read destination address: %v", err)
 		return
 	}
 	request.AuthContext = authContext
