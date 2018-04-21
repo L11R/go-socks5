@@ -48,7 +48,7 @@ type Config struct {
 	// Optional function for dialing out
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error)
 
-	// Sessions limit per user
+	// Connections limit per user
 	ConnectionsPerUser int
 }
 
@@ -58,7 +58,7 @@ type Server struct {
 	config      *Config
 	authMethods map[uint8]Authenticator
 
-	// User sessions
+	// User connections
 	Connections sync.Map
 }
 
@@ -150,16 +150,20 @@ func (s *Server) ServeConn(conn net.Conn) {
 	username := authContext.Payload["Username"]
 
 	if count, found := s.Connections.Load(username); found {
+		// Decrement one connection
+		defer s.Connections.Store(username, count.(int)-1)
+
 		if count.(int) > s.config.ConnectionsPerUser {
-			s.config.Logger.Printf("[ERR] auth: max auths per user have exceeded")
+			s.config.Logger.Printf("[ERR] socks: failed to authenticate: max count of connections for %s has exceeded", username)
+			if err := sendReply(conn, connectionRefused, nil); err != nil {
+				s.config.Logger.Printf("[ERR] socks: failed to send reply: %v", err)
+				return
+			}
 			return
 		}
 
 		// Increment one connection
 		s.Connections.Store(username, count.(int)+1)
-
-		// Decrement one connection
-		defer s.Connections.Store(username, count.(int)-1)
 	} else {
 		// If there are no connections, store one
 		s.Connections.Store(username, 1)
