@@ -169,7 +169,8 @@ func (s *Server) ServeConn(conn net.Conn) {
 		s.Connections.Store(username, 1)
 	}
 
-	log.Printf("%s authenticated\n", username)
+  count,_ := s.Connections.Load(username)
+	log.Printf("[%d] %s authenticated (%s)\n", count, username, conn.RemoteAddr())
 
 	request, err := NewRequest(bufConn)
 	if err != nil {
